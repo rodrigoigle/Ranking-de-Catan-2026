@@ -239,6 +239,7 @@
       <div class="card">
         <div class="card-header">
           <h2 class="card-title">🏆 Ranking Geral</h2>
+          <button class="btn btn-secondary" onclick="loadFromSheet()" style="padding: 0.5rem 1rem; font-size: 0.8rem;">🔄 Atualizar</button>
         </div>
         <div style="overflow-x: auto;">
           <table class="ranking-table">
@@ -411,56 +412,29 @@
       setupTabs();
       renderPlayerSelection();
       
-      // Carregar dados do CSV local
-      await loadFromCSV();
+      // Carregar dados da planilha
+      await loadFromSheet();
     });
 
-    // LOAD FROM LOCAL CSV
-    async function loadFromCSV() {
+    // LOAD FROM GOOGLE SHEETS
+    async function loadFromSheet() {
+      const scriptUrl = document.getElementById('scriptUrl')?.value || DEFAULT_SCRIPT_URL;
+      
       try {
         showLoadingState(true);
-        const response = await fetch('dados.csv');
-        if (!response.ok) throw new Error('CSV não encontrado');
+        const response = await fetch(scriptUrl);
+        const data = await response.json();
         
-        const text = await response.text();
-        const lines = text.split('\n').filter(l => l.trim());
-        
-        // Pular header
-        matches = [];
-        for (let i = 1; i < lines.length; i++) {
-          const cols = parseCSVLine(lines[i]);
-          if (cols.length < 15) continue;
-          
-          // Estrutura: Data | J1 | Pts1 | J2 | Pts2 | J3 | Pts3 | J4 | Pts4 | J5 | Pts5 | J6 | Pts6 | Vencedor | Último | Tipo Vitória
-          const players = [];
-          const points = [];
-          
-          for (let j = 0; j < 6; j++) {
-            const name = cols[1 + j * 2]?.trim();
-            const pts = cols[2 + j * 2]?.trim();
-            if (name) {
-              players.push(name);
-              points.push(parseInt(pts) || 0);
-            }
-          }
-          
-          if (players.length >= 2) {
-            matches.push({
-              date: cols[0] || '',
-              players,
-              points,
-              winner: cols[13]?.trim() || '',
-              loser: cols[14]?.trim() || '',
-              victory_type: cols[15]?.trim() || 'nenhum'
-            });
-          }
+        if (data.success && data.matches) {
+          matches = data.matches;
+          showToast(`${matches.length} partidas carregadas!`);
+        } else {
+          console.error('Erro ao carregar:', data.error);
+          showToast('Erro ao carregar dados', 'error');
         }
-        
-        console.log(`${matches.length} partidas carregadas do CSV`);
-        
       } catch (err) {
-        console.error('Erro ao carregar CSV:', err);
-        showToast('Erro ao carregar dados', 'error');
+        console.error('Erro ao conectar:', err);
+        showToast('Erro de conexão', 'error');
       } finally {
         isLoading = false;
         showLoadingState(false);
@@ -468,31 +442,10 @@
       }
     }
 
-    // Parse CSV line handling quoted values
-    function parseCSVLine(line) {
-      const result = [];
-      let current = '';
-      let inQuotes = false;
-      
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"') {
-          inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-          result.push(current);
-          current = '';
-        } else {
-          current += char;
-        }
-      }
-      result.push(current);
-      return result;
-    }
-
     function showLoadingState(loading) {
       const rankingBody = document.getElementById('rankingBody');
       if (loading) {
-        rankingBody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted);">Carregando...</td></tr>';
+        rankingBody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">Carregando dados...</td></tr>';
       }
     }
 
