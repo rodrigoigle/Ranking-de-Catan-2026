@@ -405,7 +405,7 @@
           <div style="overflow-x: auto;">
             <table class="ranking-table">
               <thead>
-                <tr><th>Jogador</th><th>Sequência</th><th>Status</th></tr>
+                <tr><th>Jogador</th><th>Sequência</th></tr>
               </thead>
               <tbody id="noWinStreakBody"></tbody>
             </table>
@@ -435,7 +435,7 @@
           <div style="overflow-x: auto;">
             <table class="ranking-table">
               <thead>
-                <tr><th>Jogador</th><th>Sequência</th><th>Status</th></tr>
+                <tr><th>Jogador</th><th>Sequência</th></tr>
               </thead>
               <tbody id="noLastStreakBody"></tbody>
             </table>
@@ -1304,20 +1304,9 @@ IMPORTANTE: Ordene por total_points (maior primeiro). Retorne SOMENTE o JSON.` }
       // No win streak
       const noWinRanking = [...stats].sort((a, b) => b.noWinStreak - a.noWinStreak);
       document.getElementById('noWinStreakBody').innerHTML = noWinRanking.map(p => {
-        let badgeClass = 'success';
-        let badgeText = '🎉';
-        if (p.noWinStreak >= 10) {
-          badgeClass = 'danger';
-          badgeText = '🔥';
-        } else if (p.noWinStreak >= 5) {
-          badgeClass = 'warning';
-          badgeText = '⚠️';
-        }
-        
         return `<tr>
           <td class="player-name">${p.name}</td>
           <td class="stat-value highlight">${p.noWinStreak}</td>
-          <td><span class="stat-badge ${badgeClass}">${badgeText} ${p.noWinStreak === 0 ? 'Ganhou última!' : p.noWinStreak >= 10 ? 'Crítico!' : p.noWinStreak >= 5 ? 'Atenção!' : 'Normal'}</span></td>
         </tr>`;
       }).join('');
       
@@ -1333,23 +1322,9 @@ IMPORTANTE: Ordene por total_points (maior primeiro). Retorne SOMENTE o JSON.` }
       // No last streak
       const noLastRanking = [...stats].sort((a, b) => b.noLastStreak - a.noLastStreak);
       document.getElementById('noLastStreakBody').innerHTML = noLastRanking.map(p => {
-        let badgeClass = 'success';
-        let badgeText = '✨';
-        if (p.noLastStreak >= 15) {
-          badgeClass = 'success';
-          badgeText = '🌟';
-        } else if (p.noLastStreak >= 8) {
-          badgeClass = 'success';
-          badgeText = '⭐';
-        } else if (p.noLastStreak === 0) {
-          badgeClass = 'danger';
-          badgeText = '💀';
-        }
-        
         return `<tr>
           <td class="player-name">${p.name}</td>
           <td class="stat-value highlight">${p.noLastStreak}</td>
-          <td><span class="stat-badge ${badgeClass}">${badgeText} ${p.noLastStreak === 0 ? 'Último agora!' : p.noLastStreak >= 15 ? 'Excelente!' : p.noLastStreak >= 8 ? 'Ótimo!' : 'Normal'}</span></td>
         </tr>`;
       }).join('');
     }
