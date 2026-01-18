@@ -206,6 +206,18 @@
     .data-controls { display: flex; gap: 0.8rem; flex-wrap: wrap; }
     .file-input-wrapper { position: relative; }
     .file-input-wrapper input[type="file"] { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+    
+    /* Stats specific styles */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+    .stat-badge { 
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0.3rem 0.8rem; border-radius: 100px; font-size: 0.75rem;
+      font-weight: 600; font-family: 'JetBrains Mono', monospace;
+    }
+    .stat-badge.danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+    .stat-badge.warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+    .stat-badge.success { background: var(--accent-glow); color: var(--accent); }
+    
     @media (max-width: 768px) {
       .container { padding: 1rem; }
       .logo { font-size: 2rem; }
@@ -215,6 +227,7 @@
       .player-grid { grid-template-columns: repeat(2, 1fr); }
       .victory-grid { grid-template-columns: repeat(2, 1fr); }
       .player-edit-row { grid-template-columns: 30px 1fr 60px 30px; }
+      .stats-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -232,6 +245,7 @@
       <button class="tab" data-tab="history">📋 Histórico</button>
       <button class="tab" data-tab="combinations">👥 Combinações</button>
       <button class="tab" data-tab="versus">⚔️ 1v1</button>
+      <button class="tab" data-tab="stats">📊 Estatísticas</button>
     </nav>
 
     <!-- RANKING -->
@@ -362,6 +376,71 @@
           <h2 class="card-title">⚔️ 1 vs 1</h2>
         </div>
         <div class="vs-grid" id="vsGrid"></div>
+      </div>
+    </section>
+
+    <!-- STATISTICS -->
+    <section id="stats" class="section">
+      <div class="stats-grid">
+        <!-- Ranking de Últimos -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">💀 Vezes em Último</h2>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="ranking-table">
+              <thead>
+                <tr><th>#</th><th>Jogador</th><th>Últimos</th><th>Taxa</th></tr>
+              </thead>
+              <tbody id="loserRankingBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Sequências sem ganhar -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">🔥 Partidas sem Ganhar</h2>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="ranking-table">
+              <thead>
+                <tr><th>Jogador</th><th>Sequência</th><th>Status</th></tr>
+              </thead>
+              <tbody id="noWinStreakBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Posição média -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">📍 Posição Mais Frequente</h2>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="ranking-table">
+              <thead>
+                <tr><th>Jogador</th><th>Posição Média</th><th>Mais Frequente</th></tr>
+              </thead>
+              <tbody id="avgPositionBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Sequências sem ficar em último -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">✨ Partidas sem Último</h2>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="ranking-table">
+              <thead>
+                <tr><th>Jogador</th><th>Sequência</th><th>Status</th></tr>
+              </thead>
+              <tbody id="noLastStreakBody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </section>
   </div>
@@ -918,6 +997,78 @@ IMPORTANTE: Ordene por total_points (maior primeiro). Retorne SOMENTE o JSON.` }
       return vs;
     }
 
+    // STATISTICS CALCULATIONS
+    function calculateStats() {
+      const stats = {};
+      
+      // Initialize stats for each player
+      PLAYERS.forEach(p => {
+        stats[p] = {
+          name: p,
+          losers: 0,
+          played: 0,
+          noWinStreak: 0,
+          noLastStreak: 0,
+          positions: [],
+          lastWasWinner: false,
+          lastWasLoser: false
+        };
+      });
+
+      // Process matches in order (oldest to newest)
+      matches.forEach(m => {
+        m.players.forEach((player, index) => {
+          if (stats[player]) {
+            stats[player].played++;
+            stats[player].positions.push(index + 1);
+            
+            // Check if winner
+            if (player === m.winner) {
+              stats[player].noWinStreak = 0;
+              stats[player].lastWasWinner = true;
+            } else {
+              stats[player].noWinStreak++;
+              stats[player].lastWasWinner = false;
+            }
+            
+            // Check if loser
+            if (player === m.loser) {
+              stats[player].losers++;
+              stats[player].noLastStreak = 0;
+              stats[player].lastWasLoser = true;
+            } else {
+              stats[player].noLastStreak++;
+              stats[player].lastWasLoser = false;
+            }
+          }
+        });
+      });
+
+      // Calculate additional metrics
+      Object.values(stats).forEach(s => {
+        // Loser rate
+        s.loserRate = s.played > 0 ? (s.losers / s.played * 100).toFixed(0) + '%' : '0%';
+        
+        // Average position
+        if (s.positions.length > 0) {
+          const sum = s.positions.reduce((a, b) => a + b, 0);
+          s.avgPosition = (sum / s.positions.length).toFixed(2);
+          
+          // Most frequent position
+          const freq = {};
+          s.positions.forEach(pos => freq[pos] = (freq[pos] || 0) + 1);
+          const maxFreq = Math.max(...Object.values(freq));
+          const mostFrequent = Object.keys(freq).filter(k => freq[k] === maxFreq);
+          s.mostFrequentPosition = mostFrequent.length === 1 ? mostFrequent[0] + 'º' : mostFrequent.map(p => p + 'º').join(', ');
+        } else {
+          s.avgPosition = '-';
+          s.mostFrequentPosition = '-';
+        }
+      });
+
+      return Object.values(stats);
+    }
+
     // RENDERING
     const VICTORY_EMOJI = {
       'nenhum': '🏆',
@@ -1135,12 +1286,81 @@ IMPORTANTE: Ordene por total_points (maior primeiro). Retorne SOMENTE o JSON.` }
       }).join('');
     }
 
+    function renderStats() {
+      const stats = calculateStats();
+      
+      // Loser ranking
+      const loserRanking = [...stats].sort((a, b) => b.losers - a.losers);
+      document.getElementById('loserRankingBody').innerHTML = loserRanking.map((p, i) => {
+        const rc = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-default';
+        return `<tr>
+          <td><span class="rank-badge ${rc}">${i + 1}</span></td>
+          <td class="player-name">${p.name}</td>
+          <td class="stat-value highlight">${p.losers}</td>
+          <td class="stat-value">${p.loserRate}</td>
+        </tr>`;
+      }).join('');
+      
+      // No win streak
+      const noWinRanking = [...stats].sort((a, b) => b.noWinStreak - a.noWinStreak);
+      document.getElementById('noWinStreakBody').innerHTML = noWinRanking.map(p => {
+        let badgeClass = 'success';
+        let badgeText = '🎉';
+        if (p.noWinStreak >= 10) {
+          badgeClass = 'danger';
+          badgeText = '🔥';
+        } else if (p.noWinStreak >= 5) {
+          badgeClass = 'warning';
+          badgeText = '⚠️';
+        }
+        
+        return `<tr>
+          <td class="player-name">${p.name}</td>
+          <td class="stat-value highlight">${p.noWinStreak}</td>
+          <td><span class="stat-badge ${badgeClass}">${badgeText} ${p.noWinStreak === 0 ? 'Ganhou última!' : p.noWinStreak >= 10 ? 'Crítico!' : p.noWinStreak >= 5 ? 'Atenção!' : 'Normal'}</span></td>
+        </tr>`;
+      }).join('');
+      
+      // Average position
+      document.getElementById('avgPositionBody').innerHTML = stats.map(p => {
+        return `<tr>
+          <td class="player-name">${p.name}</td>
+          <td class="stat-value highlight">${p.avgPosition}</td>
+          <td class="stat-value">${p.mostFrequentPosition}</td>
+        </tr>`;
+      }).join('');
+      
+      // No last streak
+      const noLastRanking = [...stats].sort((a, b) => b.noLastStreak - a.noLastStreak);
+      document.getElementById('noLastStreakBody').innerHTML = noLastRanking.map(p => {
+        let badgeClass = 'success';
+        let badgeText = '✨';
+        if (p.noLastStreak >= 15) {
+          badgeClass = 'success';
+          badgeText = '🌟';
+        } else if (p.noLastStreak >= 8) {
+          badgeClass = 'success';
+          badgeText = '⭐';
+        } else if (p.noLastStreak === 0) {
+          badgeClass = 'danger';
+          badgeText = '💀';
+        }
+        
+        return `<tr>
+          <td class="player-name">${p.name}</td>
+          <td class="stat-value highlight">${p.noLastStreak}</td>
+          <td><span class="stat-badge ${badgeClass}">${badgeText} ${p.noLastStreak === 0 ? 'Último agora!' : p.noLastStreak >= 15 ? 'Excelente!' : p.noLastStreak >= 8 ? 'Ótimo!' : 'Normal'}</span></td>
+        </tr>`;
+      }).join('');
+    }
+
     function renderAll() {
       renderRanking();
       renderTop3();
       renderHistory();
       renderCombinations();
       renderVersus();
+      renderStats();
     }
 
     // ACTIONS
